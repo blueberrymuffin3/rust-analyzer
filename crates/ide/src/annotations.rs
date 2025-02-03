@@ -537,6 +537,20 @@ fn main() {
                     },
                     Annotation {
                         range: 69..73,
+                        kind: HasReferences {
+                            pos: FilePositionWrapper {
+                                file_id: FileId(
+                                    0,
+                                ),
+                                offset: 69,
+                            },
+                            data: Some(
+                                [],
+                            ),
+                        },
+                    },
+                    Annotation {
+                        range: 69..73,
                         kind: Runnable(
                             Runnable {
                                 use_name_in_title: false,
@@ -558,20 +572,6 @@ fn main() {
                                 },
                             },
                         ),
-                    },
-                    Annotation {
-                        range: 69..73,
-                        kind: HasReferences {
-                            pos: FilePositionWrapper {
-                                file_id: FileId(
-                                    0,
-                                ),
-                                offset: 69,
-                            },
-                            data: Some(
-                                [],
-                            ),
-                        },
                     },
                 ]
             "#]],
