@@ -228,6 +228,7 @@ fn try_lookup_include_path(
         container_name: None,
         description: None,
         docs: None,
+        context: None,
     })
 }
 

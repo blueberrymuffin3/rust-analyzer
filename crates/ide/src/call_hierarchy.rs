@@ -113,7 +113,7 @@ pub(crate) fn outgoing_calls(
         .flatten()
         .filter_map(ast::CallableExpr::cast)
         .filter_map(|call_node| {
-            let (nav_target, range) = match call_node {
+            let (nav_target, context, range) = match call_node {
                 ast::CallableExpr::Call(call) => {
                     let expr = call.expr()?;
                     let callable = sema.type_of_expr(&expr)?.original.as_callable(db)?;
@@ -128,22 +128,26 @@ pub(crate) fn outgoing_calls(
                         hir::CallableKind::TupleStruct(it) => it.try_to_nav(db),
                         _ => None,
                     }
-                    .zip(Some(sema.original_range(expr.syntax())))
+                    .map(|result| (result, None, sema.original_range(expr.syntax())))
                 }
                 ast::CallableExpr::MethodCall(expr) => {
-                    let function = sema.resolve_method_call(&expr)?;
+                    // TODO: Get context from lsp data field
+                    let (function, context) =
+                        sema.resolve_method_call_with_generic_context(&expr, None)?;
                     if exclude_tests && function.is_test(db) {
                         return None;
                     }
-                    function
-                        .try_to_nav(db)
-                        .zip(Some(sema.original_range(expr.name_ref()?.syntax())))
+                    let range = sema.original_range(expr.name_ref()?.syntax());
+                    function.try_to_nav(db).map(|result| (result, Some(context), range))
                 }
             }?;
-            Some(nav_target.into_iter().zip(iter::repeat(range)))
+            Some(nav_target.into_iter().zip(iter::repeat((context, range))))
         })
         .flatten()
-        .for_each(|(nav, range)| calls.add(nav, range.into()));
+        .for_each(|(mut nav, (context, range))| {
+            nav.add_substitution_context(db, context);
+            calls.add(nav, range.into());
+        });
 
     Some(calls.into_items())
 }

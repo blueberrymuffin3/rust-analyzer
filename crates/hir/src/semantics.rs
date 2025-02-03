@@ -51,8 +51,9 @@ use crate::{
     Access, Adjust, Adjustment, Adt, AutoBorrow, BindingMode, BuiltinAttr, Callable, Const,
     ConstParam, Crate, DeriveHelper, Enum, Field, Function, GenericSubstitution, HasSource,
     HirFileId, Impl, InFile, InlineAsmOperand, ItemInNs, Label, LifetimeParam, Local, Macro,
-    Module, ModuleDef, Name, OverloadedDeref, Path, ScopeDef, Static, Struct, ToolModule, Trait,
-    TraitAlias, TupleField, Type, TypeAlias, TypeParam, Union, Variant, VariantDef,
+    Module, ModuleDef, Name, OverloadedDeref, Path, ScopeDef, Static, Struct, SubstitutionContext,
+    ToolModule, Trait, TraitAlias, TupleField, Type, TypeAlias, TypeParam, Union, Variant,
+    VariantDef,
 };
 
 const CONTINUE_NO_BREAKS: ControlFlow<Infallible, ()> = ControlFlow::Continue(());
@@ -1429,6 +1430,15 @@ impl<'db> SemanticsImpl<'db> {
 
     pub fn resolve_method_call(&self, call: &ast::MethodCallExpr) -> Option<Function> {
         self.analyze(call.syntax())?.resolve_method_call(self.db, call)
+    }
+
+    pub fn resolve_method_call_with_generic_context(
+        &self,
+        call: &ast::MethodCallExpr,
+        context: Option<SubstitutionContext>,
+    ) -> Option<(Function, SubstitutionContext)> {
+        self.analyze(call.syntax())?
+            .resolve_method_call_with_generic_context(self.db, call, context)
     }
 
     /// Attempts to resolve this call expression as a method call falling back to resolving it as a field.

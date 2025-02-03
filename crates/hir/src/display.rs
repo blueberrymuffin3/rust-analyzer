@@ -25,8 +25,8 @@ use itertools::Itertools;
 use crate::{
     Adt, AsAssocItem, AssocItem, AssocItemContainer, Const, ConstParam, Crate, Enum,
     ExternCrateDecl, Field, Function, GenericParam, HasCrate, HasVisibility, Impl, LifetimeParam,
-    Macro, Module, SelfParam, Static, Struct, Trait, TraitAlias, TraitRef, TupleField, TyBuilder,
-    Type, TypeAlias, TypeOrConstParam, TypeParam, Union, Variant,
+    Macro, Module, SelfParam, Static, Struct, SubstitutionContext, Trait, TraitAlias, TraitRef,
+    TupleField, TyBuilder, Type, TypeAlias, TypeOrConstParam, TypeParam, Union, Variant,
 };
 
 impl HirDisplay for Function {
@@ -881,5 +881,11 @@ impl HirDisplay for Macro {
             hir_def::MacroId::ProcMacroId(_) => f.write_str("proc_macro"),
         }?;
         write!(f, " {}", self.name(f.db).display(f.db.upcast(), f.edition()))
+    }
+}
+
+impl HirDisplay for SubstitutionContext {
+    fn hir_fmt(&self, f: &mut HirFormatter<'_>) -> Result<(), HirDisplayError> {
+        self.0.hir_fmt(f)
     }
 }

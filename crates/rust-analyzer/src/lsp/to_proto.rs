@@ -1411,6 +1411,10 @@ pub(crate) fn call_hierarchy_item(
     snap: &GlobalStateSnapshot,
     target: NavigationTarget,
 ) -> Cancellable<lsp_types::CallHierarchyItem> {
+    // TODO: Serialize target.context, maybe to an int?
+    let context = target.context.as_ref().and(Some("asdf"));
+    let data = context.map(|context| to_value(context).unwrap());
+
     let name = target.name.to_string();
     let detail = target.description.clone();
     let kind = target.kind.map(symbol_kind).unwrap_or(lsp_types::SymbolKind::FUNCTION);
@@ -1423,7 +1427,7 @@ pub(crate) fn call_hierarchy_item(
         uri,
         range,
         selection_range,
-        data: None,
+        data,
     })
 }
 

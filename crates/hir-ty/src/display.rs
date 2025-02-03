@@ -1989,6 +1989,16 @@ impl HirDisplay for DomainGoal {
     }
 }
 
+impl HirDisplay for Substitution {
+    fn hir_fmt(&self, f: &mut HirFormatter<'_>) -> Result<(), HirDisplayError> {
+        f.write_str("<")?;
+        let iter = self.iter(Interner);
+        f.write_joined(iter, ", ")?;
+        f.write_str(">")?;
+        Ok(())
+    }
+}
+
 pub fn write_visibility(
     module_id: ModuleId,
     vis: Visibility,

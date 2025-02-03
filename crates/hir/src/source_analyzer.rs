@@ -10,7 +10,8 @@ use std::iter::{self, once};
 use crate::{
     db::HirDatabase, semantics::PathResolution, Adt, AssocItem, BindingMode, BuiltinAttr,
     BuiltinType, Callable, Const, DeriveHelper, Field, Function, GenericSubstitution, Local, Macro,
-    ModuleDef, Static, Struct, ToolModule, Trait, TraitAlias, TupleField, Type, TypeAlias, Variant,
+    ModuleDef, Static, Struct, SubstitutionContext, ToolModule, Trait, TraitAlias, TupleField,
+    Type, TypeAlias, Variant,
 };
 use either::Either;
 use hir_def::{
@@ -296,6 +297,21 @@ impl SourceAnalyzer {
         let (f_in_trait, substs) = self.infer.as_ref()?.method_resolution(expr_id)?;
 
         Some(self.resolve_impl_method_or_trait_def(db, f_in_trait, substs).into())
+    }
+
+    pub(crate) fn resolve_method_call_with_generic_context(
+        &self,
+        db: &dyn HirDatabase,
+        call: &ast::MethodCallExpr,
+        _incoming_context: Option<SubstitutionContext>,
+    ) -> Option<(Function, SubstitutionContext)> {
+        let expr_id = self.expr_id(db, &call.clone().into())?.as_expr()?;
+        let (f_in_trait, substs) = self.infer.as_ref()?.method_resolution(expr_id)?;
+
+        Some((
+            self.resolve_impl_method_or_trait_def(db, f_in_trait, substs.clone()).into(),
+            SubstitutionContext(substs),
+        ))
     }
 
     pub(crate) fn resolve_method_call_fallback(

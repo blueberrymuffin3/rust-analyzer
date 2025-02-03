@@ -3690,6 +3690,15 @@ impl GenericSubstitution {
     }
 }
 
+#[derive(Clone, PartialEq, Eq, Hash)]
+pub struct SubstitutionContext(pub Substitution);
+
+impl SubstitutionContext {
+    pub fn is_empty(&self) -> bool {
+        self.0.iter(Interner).next().is_none()
+    }
+}
+
 /// A single local definition.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct Local {

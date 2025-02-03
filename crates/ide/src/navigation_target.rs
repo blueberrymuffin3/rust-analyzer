@@ -1,12 +1,14 @@
 //! See [`NavigationTarget`].
 
 use std::fmt;
+use std::fmt::Write;
 
 use arrayvec::ArrayVec;
 use either::Either;
 use hir::{
     db::ExpandDatabase, symbols::FileSymbol, AssocItem, FieldSource, HasContainer, HasCrate,
     HasSource, HirDisplay, HirFileId, HirFileIdExt, InFile, LocalSource, ModuleSource,
+    SubstitutionContext,
 };
 use ide_db::{
     defs::Definition,
@@ -55,6 +57,7 @@ pub struct NavigationTarget {
     /// In such cases we want a `NavigationTarget` to be accessible by its alias
     // FIXME: Symbol
     pub alias: Option<SmolStr>,
+    pub context: Option<SubstitutionContext>,
 }
 
 impl fmt::Debug for NavigationTarget {
@@ -175,7 +178,25 @@ impl NavigationTarget {
             description: None,
             docs: None,
             alias: None,
+            context: None,
         }
+    }
+
+    pub fn add_substitution_context(
+        &mut self,
+        db: &RootDatabase,
+        context: Option<SubstitutionContext>,
+    ) {
+        // TODO: how to get this
+        let edition = Edition::CURRENT_FIXME;
+        if let (Some(description), Some(context)) = (&mut self.description, &context) {
+            if !context.is_empty() {
+                write!(description, "\nCalled with: {}", context.display(db, edition)).unwrap();
+            } else {
+                description.push_str("\nCalled with empty context");
+            }
+        }
+        self.context = context;
     }
 }
 
@@ -216,6 +237,7 @@ impl TryToNav for FileSymbol {
                         hir::ModuleDef::BuiltinType(_) => None,
                     },
                     docs: None,
+                    context: None,
                 }
             }),
         )
@@ -576,6 +598,7 @@ impl ToNav for LocalSource {
                     container_name: None,
                     description: None,
                     docs: None,
+                    context: None,
                 }
             },
         )
@@ -605,6 +628,7 @@ impl TryToNav for hir::Label {
                 container_name: None,
                 description: None,
                 docs: None,
+                context: None,
             },
         ))
     }
@@ -642,6 +666,7 @@ impl TryToNav for hir::TypeParam {
                 container_name: None,
                 description: None,
                 docs: None,
+                context: None,
             },
         ))
     }
@@ -670,6 +695,7 @@ impl TryToNav for hir::LifetimeParam {
                 container_name: None,
                 description: None,
                 docs: None,
+                context: None,
             },
         ))
     }
@@ -700,6 +726,7 @@ impl TryToNav for hir::ConstParam {
                 container_name: None,
                 description: None,
                 docs: None,
+                context: None,
             },
         ))
     }
@@ -724,6 +751,7 @@ impl TryToNav for hir::InlineAsmOperand {
                     container_name: None,
                     description: None,
                     docs: None,
+                    context: None,
                 }
             },
         ))
