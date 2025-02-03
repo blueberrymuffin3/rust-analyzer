@@ -1437,8 +1437,11 @@ impl<'db> SemanticsImpl<'db> {
         call: &ast::MethodCallExpr,
         context: Option<SubstitutionContext>,
     ) -> Option<(Function, SubstitutionContext)> {
-        self.analyze(call.syntax())?
-            .resolve_method_call_with_generic_context(self.db, call, context)
+        self.analyze(call.syntax())?.resolve_method_call_with_generic_context(
+            self.db,
+            call,
+            context.map(|x| x.0),
+        )
     }
 
     /// Attempts to resolve this call expression as a method call falling back to resolving it as a field.

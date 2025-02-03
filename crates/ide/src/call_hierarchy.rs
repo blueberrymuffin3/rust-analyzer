@@ -1,8 +1,8 @@
 //! Entry point for call-hierarchy
 
-use std::iter;
+use std::{iter, ops::Not};
 
-use hir::Semantics;
+use hir::{Semantics, SubstitutionContext};
 use ide_db::{
     defs::{Definition, NameClass, NameRefClass},
     helpers::pick_best_token,
@@ -91,6 +91,7 @@ pub(crate) fn outgoing_calls(
     db: &RootDatabase,
     CallHierarchyConfig { exclude_tests }: CallHierarchyConfig,
     FilePosition { file_id, offset }: FilePosition,
+    subst_context: Option<SubstitutionContext>,
 ) -> Option<Vec<CallItem>> {
     let sema = Semantics::new(db);
     let file = sema.parse_guess_edition(file_id);
@@ -132,13 +133,14 @@ pub(crate) fn outgoing_calls(
                 }
                 ast::CallableExpr::MethodCall(expr) => {
                     // TODO: Get context from lsp data field
-                    let (function, context) =
-                        sema.resolve_method_call_with_generic_context(&expr, None)?;
+                    let (function, context) = sema
+                        .resolve_method_call_with_generic_context(&expr, subst_context.clone())?;
                     if exclude_tests && function.is_test(db) {
                         return None;
                     }
+                    let context = context.is_empty().not().then_some(context);
                     let range = sema.original_range(expr.name_ref()?.syntax());
-                    function.try_to_nav(db).map(|result| (result, Some(context), range))
+                    function.try_to_nav(db).map(|result| (result, context, range))
                 }
             }?;
             Some(nav_target.into_iter().zip(iter::repeat((context, range))))
@@ -207,7 +209,7 @@ mod tests {
         let incoming_calls = analysis.incoming_calls(config, item_pos).unwrap().unwrap();
         expected_incoming.assert_eq(&incoming_calls.into_iter().map(debug_render).join("\n"));
 
-        let outgoing_calls = analysis.outgoing_calls(config, item_pos).unwrap().unwrap();
+        let outgoing_calls = analysis.outgoing_calls(config, item_pos, None).unwrap().unwrap();
         expected_outgoing.assert_eq(&outgoing_calls.into_iter().map(debug_render).join("\n"));
     }
 

@@ -61,7 +61,7 @@ use std::{iter, panic::UnwindSafe};
 
 use cfg::CfgOptions;
 use fetch_crates::CrateInfo;
-use hir::{sym, ChangeWithProcMacros};
+use hir::{sym, ChangeWithProcMacros, SubstitutionContext};
 use ide_db::{
     base_db::{
         ra_salsa::{self, ParallelDatabase},
@@ -568,8 +568,9 @@ impl Analysis {
         &self,
         config: CallHierarchyConfig,
         position: FilePosition,
+        context: Option<SubstitutionContext>,
     ) -> Cancellable<Option<Vec<CallItem>>> {
-        self.with_db(|db| call_hierarchy::outgoing_calls(db, config, position))
+        self.with_db(|db| call_hierarchy::outgoing_calls(db, config, position, context))
     }
 
     /// Returns a `mod name;` declaration which created the current module.

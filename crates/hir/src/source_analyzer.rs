@@ -303,13 +303,18 @@ impl SourceAnalyzer {
         &self,
         db: &dyn HirDatabase,
         call: &ast::MethodCallExpr,
-        _incoming_context: Option<SubstitutionContext>,
+        override_subst: Option<Substitution>,
     ) -> Option<(Function, SubstitutionContext)> {
         let expr_id = self.expr_id(db, &call.clone().into())?.as_expr()?;
         let (f_in_trait, substs) = self.infer.as_ref()?.method_resolution(expr_id)?;
 
         Some((
-            self.resolve_impl_method_or_trait_def(db, f_in_trait, substs.clone()).into(),
+            self.resolve_impl_method_or_trait_def(
+                db,
+                f_in_trait,
+                override_subst.unwrap_or(substs.clone()),
+            )
+            .into(),
             SubstitutionContext(substs),
         ))
     }

@@ -55,6 +55,8 @@ use crate::{
     test_runner::{CargoTestHandle, TestTarget},
 };
 
+use self::to_proto::HORRID_HACK_STATIC;
+
 pub(crate) fn handle_workspace_reload(state: &mut GlobalState, _: ()) -> anyhow::Result<()> {
     state.proc_macro_clients = Arc::from_iter([]);
     state.build_deps_changed = false;
@@ -1812,7 +1814,12 @@ pub(crate) fn handle_call_hierarchy_outgoing(
     let line_index = snap.file_line_index(fpos.file_id)?;
 
     let config = snap.config.call_hierarchy();
-    let call_items = match snap.analysis.outgoing_calls(config, fpos)? {
+
+    let context = item
+        .data
+        .and_then(|data| serde_json::from_value(data).ok())
+        .and_then(|handle| HORRID_HACK_STATIC.lock().get(handle));
+    let call_items = match snap.analysis.outgoing_calls(config, fpos, context)? {
         None => return Ok(None),
         Some(it) => it,
     };

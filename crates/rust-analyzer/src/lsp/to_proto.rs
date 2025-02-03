@@ -7,6 +7,7 @@ use std::{
 };
 
 use base64::{prelude::BASE64_STANDARD, Engine};
+use hir::SubstitutionContext;
 use ide::{
     Annotation, AnnotationKind, Assist, AssistKind, Cancellable, CompletionFieldsToResolve,
     CompletionItem, CompletionItemKind, CompletionRelevance, Documentation, FileId, FileRange,
@@ -17,8 +18,10 @@ use ide::{
 };
 use ide_db::{assists, rust_doc::format_docs, FxHasher};
 use itertools::Itertools;
+use parking_lot::Mutex;
 use paths::{Utf8Component, Utf8Prefix};
 use semver::VersionReq;
+use serde::{Deserialize, Serialize};
 use serde_json::to_value;
 use syntax::SmolStr;
 use vfs::AbsPath;
@@ -1407,13 +1410,40 @@ impl From<lsp_ext::SnippetTextEdit>
     }
 }
 
+// TODO: Horrid hack
+#[derive(Default)]
+pub(crate) struct HorridHackData {
+    data: Vec<SubstitutionContext>,
+}
+
+impl HorridHackData {
+    fn add(&mut self, context: SubstitutionContext) -> HorridHackHandle {
+        self.data.push(context);
+        HorridHackHandle(self.data.len() - 1)
+    }
+    pub(crate) fn get(&self, handle: HorridHackHandle) -> Option<SubstitutionContext> {
+        self.data.get(handle.0).cloned()
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub(crate) struct HorridHackHandle(usize);
+
+pub(crate) static HORRID_HACK_STATIC: Mutex<HorridHackData> =
+    Mutex::new(HorridHackData { data: Vec::new() });
+
 pub(crate) fn call_hierarchy_item(
     snap: &GlobalStateSnapshot,
     target: NavigationTarget,
 ) -> Cancellable<lsp_types::CallHierarchyItem> {
     // TODO: Serialize target.context, maybe to an int?
-    let context = target.context.as_ref().and(Some("asdf"));
-    let data = context.map(|context| to_value(context).unwrap());
+    let data = match &target.context {
+        Some(context) => {
+            let handle = HORRID_HACK_STATIC.lock().add(context.clone());
+            Some(serde_json::to_value(handle).unwrap())
+        }
+        None => None,
+    };
 
     let name = target.name.to_string();
     let detail = target.description.clone();
