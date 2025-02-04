@@ -213,6 +213,57 @@ mod tests {
         expected_outgoing.assert_eq(&outgoing_calls.into_iter().map(debug_render).join("\n"));
     }
 
+    fn check_hierarchy_nested(
+        exclude_tests: bool,
+        #[rust_analyzer::rust_fixture] ra_fixture: &str,
+        expected_nav: Expect,
+        expected_outgoing: Expect,
+        nested: &[(&str, Expect)],
+    ) {
+        fn debug_render(item: &crate::CallItem) -> String {
+            format!(
+                "{} : {}",
+                item.target.debug_render(),
+                item.ranges.iter().format_with(", ", |range, f| f(&format_args!(
+                    "{:?}:{:?}",
+                    range.file_id, range.range
+                )))
+            )
+        }
+
+        let (analysis, pos) = fixture::position(ra_fixture);
+
+        let mut navs = analysis.call_hierarchy(pos).unwrap().unwrap().info;
+        assert_eq!(navs.len(), 1);
+        let nav = navs.pop().unwrap();
+        expected_nav.assert_eq(&nav.debug_render());
+
+        let config = crate::CallHierarchyConfig { exclude_tests };
+
+        let item_pos =
+            FilePosition { file_id: nav.file_id, offset: nav.focus_or_full_range().start() };
+
+        let mut outgoing_calls = analysis.outgoing_calls(config, item_pos, None).unwrap().unwrap();
+        expected_outgoing.assert_eq(&outgoing_calls.iter().map(debug_render).join("\n"));
+
+        for (chosen_outgoing, expected_outgoing) in nested {
+            let selected_call = outgoing_calls
+                .into_iter()
+                .filter(|x| x.target.name == *chosen_outgoing)
+                .exactly_one()
+                .expect(&format!("Could not find chosen_outgoing {chosen_outgoing:?}"));
+
+            let nav = selected_call.target;
+
+            let nested_location =
+                FilePosition { file_id: nav.file_id, offset: nav.focus_or_full_range().start() };
+            let nested_context = nav.context;
+            outgoing_calls =
+                analysis.outgoing_calls(config, nested_location, nested_context).unwrap().unwrap();
+            expected_outgoing.assert_eq(&outgoing_calls.iter().map(debug_render).join("\n"));
+        }
+    }
+
     #[test]
     fn test_call_hierarchy_on_ref() {
         check_hierarchy(
@@ -747,6 +798,55 @@ fn f3() {
                 main Function FileId(0) 0..23 3..7 : FileId(0):16..18
                 f2 Function FileId(0) 54..81 57..59 : FileId(0):68..70"#]],
             expect!["f2 Function FileId(0) 54..81 57..59 : FileId(0):39..41"],
+        );
+    }
+
+    #[test]
+    fn test_call_hierarchy_method_contextual() {
+        check_hierarchy_nested(
+            false,
+            r#"
+//- /lib.rs
+trait MyTrait {
+    fn trait_method(&self)
+}
+
+struct MyStruct;
+
+fn hidden_callee() {}
+
+impl MyTrait for MyStruct {
+    fn trait_method(&self) -> Self {
+        hidden_callee();
+        MyStruct
+    }
+}
+
+struct TraitCaller;
+impl TraitCaller {
+    fn call_trait_method<T: MyTrait>(self, value: &T) -> T {
+        return value.trait_method();
+    }
+}
+
+fn caller$0() {
+    TraitCaller.call_trait_method(&MyStruct);
+}
+"#,
+            expect!["caller Function FileId(0) 349..410 352..358"],
+            expect!["call_trait_method Function FileId(0) 246..345 249..266 : FileId(0):379..396"],
+            &[
+                (
+                    "call_trait_method",
+                    expect![
+                        "trait_method Function FileId(0) 119..199 122..134 : FileId(0):324..336"
+                    ],
+                ),
+                (
+                    "trait_method",
+                    expect!["hidden_callee Function FileId(0) 64..85 67..80 : FileId(0):160..173"],
+                ),
+            ],
         );
     }
 }
