@@ -118,21 +118,29 @@ pub(crate) fn outgoing_calls(
                 ast::CallableExpr::Call(call) => {
                     let expr = call.expr()?;
                     let callable = sema.type_of_expr(&expr)?.original.as_callable(db)?;
-                    match callable.kind() {
+                    let (result, context) = match callable.kind() {
                         hir::CallableKind::Function(it) => {
                             if exclude_tests && it.is_test(db) {
                                 return None;
                             }
-                            it.try_to_nav(db)
+                            if let Some((func_resolved, context_resolved)) =
+                                sema.resolve_function_impl(&call, it, subst_context.clone())
+                            {
+                                tracing::error!("Resolve OK");
+                                (func_resolved.try_to_nav(db)?, Some(context_resolved))
+                            } else {
+                                tracing::error!("Resolve Failed");
+                                (it.try_to_nav(db)?, None)
+                            }
                         }
-                        hir::CallableKind::TupleEnumVariant(it) => it.try_to_nav(db),
-                        hir::CallableKind::TupleStruct(it) => it.try_to_nav(db),
-                        _ => None,
-                    }
-                    .map(|result| (result, None, sema.original_range(expr.syntax())))
+                        hir::CallableKind::TupleEnumVariant(it) => (it.try_to_nav(db)?, None),
+                        hir::CallableKind::TupleStruct(it) => (it.try_to_nav(db)?, None),
+                        _ => return None,
+                    };
+                    let range = sema.original_range(expr.syntax());
+                    (result, context, range)
                 }
                 ast::CallableExpr::MethodCall(expr) => {
-                    // TODO: Get context from lsp data field
                     let (function, context) = sema
                         .resolve_method_call_with_generic_context(&expr, subst_context.clone())?;
                     if exclude_tests && function.is_test(db) {
@@ -140,9 +148,10 @@ pub(crate) fn outgoing_calls(
                     }
                     let context = context.is_empty().not().then_some(context);
                     let range = sema.original_range(expr.name_ref()?.syntax());
-                    function.try_to_nav(db).map(|result| (result, context, range))
+                    let result = function.try_to_nav(db)?;
+                    (result, context, range)
                 }
-            }?;
+            };
             Some(nav_target.into_iter().zip(iter::repeat((context, range))))
         })
         .flatten()

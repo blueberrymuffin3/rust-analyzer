@@ -1452,6 +1452,18 @@ impl<'db> SemanticsImpl<'db> {
         self.analyze(call.syntax())?.resolve_method_call_fallback(self.db, call)
     }
 
+    pub fn resolve_function_impl(
+        &self,
+        call: &ast::CallExpr,
+        func: Function,
+        context: Option<SubstitutionContext>,
+    ) -> Option<(Function, SubstitutionContext)> {
+        let (func_resolved, context_resolved) = self
+            .analyze(call.syntax())?
+            .resolve_impl_method_or_trait_def_with_subst(self.db, func.id, context?.0);
+        Some((func_resolved.into(), SubstitutionContext(context_resolved)))
+    }
+
     /// Env is used to derive the trait environment
     // FIXME: better api for the trait environment
     pub fn resolve_trait_impl_method(

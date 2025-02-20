@@ -1222,7 +1222,7 @@ impl SourceAnalyzer {
         self.resolve_impl_method_or_trait_def_with_subst(db, func, substs).0
     }
 
-    fn resolve_impl_method_or_trait_def_with_subst(
+    pub(crate) fn resolve_impl_method_or_trait_def_with_subst(
         &self,
         db: &dyn HirDatabase,
         func: FunctionId,
